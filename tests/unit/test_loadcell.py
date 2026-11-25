@@ -285,3 +285,101 @@ def test_loadcell_failsafe_reinit_on_backend_error():
     assert sample.weight_g == 0.0
     scale.close()
 
+
+def test_auto_backend_prefers_lgpio_over_adafruit(monkeypatch):
+    class PoisonModule:
+        def __getattr__(self, name):
+            raise AssertionError(f"adafruit_hx711 must not be accessed when lgpio works ({name})")
+
+    fake_lgpio = types.SimpleNamespace(
+        gpiochip_open=lambda _idx: 7,
+        gpio_claim_input=lambda _h, _p: None,
+        gpio_claim_output=lambda _h, _p, _v: None,
+        gpio_read=lambda _h, _p: 0,
+        gpio_write=lambda _h, _p, _v: None,
+        gpiochip_close=lambda _h: None,
+    )
+    monkeypatch.setitem(sys.modules, "lgpio", fake_lgpio)
+    monkeypatch.setitem(sys.modules, "board", types.SimpleNamespace(D5="D5", D6="D6"))
+    monkeypatch.setitem(
+        sys.modules,
+        "digitalio",
+        types.SimpleNamespace(DigitalInOut=lambda _p: None, Direction=types.SimpleNamespace(OUTPUT="out")),
+    )
+    monkeypatch.setitem(sys.modules, "adafruit_hx711", PoisonModule())
+    monkeypatch.setitem(sys.modules, "adafruit_hx711.hx711", PoisonModule())
+    monkeypatch.setitem(sys.modules, "adafruit_hx711.analog_in", PoisonModule())
+
+    cfg = _make_loadcell_cfg(
+        backend="auto",
+        auto_tare_on_boot=False,
+        mock=LoadCellMockConfig(
+            enabled=False,
+            weights_g=(0.0,),
+            static_weight_g=None,
+            noise_g=0.0,
+            hold_seconds_per_step=1.0,
+        ),
+    )
+    scale = LoadCell(cfg, _pins(), environment="production")
+    scale.init_loadcell()
+    try:
+        assert isinstance(scale._backend, BitBangHX711Backend)
+    finally:
+        scale.close()
+
+
+def test_adafruit_backend_times_out_when_dout_stuck_high(monkeypatch):
+    class FakePin:
+        def __init__(self, _pin):
+            self.direction = None
+            self.value = True
+            self.deinited = False
+
+        def deinit(self):
+            self.deinited = True
+
+    monkeypatch.setitem(sys.modules, "board", types.SimpleNamespace(D5="D5", D6="D6"))
+    monkeypatch.setitem(
+        sys.modules,
+        "digitalio",
+        types.SimpleNamespace(DigitalInOut=FakePin, Direction=types.SimpleNamespace(OUTPUT="out")),
+    )
+    monkeypatch.setitem(sys.modules, "adafruit_hx711", types.SimpleNamespace())
+    monkeypatch.setitem(
+        sys.modules,
+        "adafruit_hx711.hx711",
+        types.SimpleNamespace(
+            HX711=type(
+                "HX",
+                (),
+                {
+                    "CHAN_A_GAIN_128": 1,
+                    "CHAN_A_GAIN_64": 2,
+                    "CHAN_B_GAIN_32": 3,
+                    "__init__": lambda self, d, c: None,
+                },
+            )
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "adafruit_hx711.analog_in",
+        types.SimpleNamespace(AnalogIn=lambda _hx, _ch: types.SimpleNamespace(value=12345)),
+    )
+
+    ada = AdafruitHX711Backend(5, 6, 128, read_timeout_s=0.05)
+    try:
+        with pytest.raises(LoadCellError, match="Timeout"):
+            ada.read_raw()
+    finally:
+        ada.close()
+
+
+def test_test_loadcell_script_mock_count():
+    from scripts.test_loadcell import main as loadcell_cli_main
+
+    rc = loadcell_cli_main(["--mock", "--count", "3", "--interval", "0.01"])
+    assert rc == 0
+
+

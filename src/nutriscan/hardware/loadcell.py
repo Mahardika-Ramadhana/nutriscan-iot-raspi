@@ -117,9 +117,17 @@ class RpiGpioPinDriver:
 
 
 class AdafruitHX711Backend:
-    """HX711 backend using adafruit_circuitpython_hx711 (matching DICA hardware)."""
+    """HX711 backend using adafruit_circuitpython_hx711 with bounded DOUT timeout."""
 
-    def __init__(self, dout_pin: int, sck_pin: int, gain: int = 128) -> None:
+    def __init__(
+        self,
+        dout_pin: int,
+        sck_pin: int,
+        gain: int = 128,
+        read_timeout_s: float = 1.0,
+        perf_clock: Callable[[], float] = time.perf_counter,
+        sleeper: Callable[[float], None] = time.sleep,
+    ) -> None:
         import board
         import digitalio
         from adafruit_hx711.analog_in import AnalogIn
@@ -133,6 +141,8 @@ class AdafruitHX711Backend:
         self._data = digitalio.DigitalInOut(dt_obj)
         self._clock = digitalio.DigitalInOut(sck_obj)
         self._clock.direction = digitalio.Direction.OUTPUT
+        if hasattr(self._clock, "value"):
+            self._clock.value = False
         self._hx = HX711(self._data, self._clock)
 
         gain_map = {
@@ -142,8 +152,19 @@ class AdafruitHX711Backend:
         }
         channel_const = gain_map.get(gain, HX711.CHAN_A_GAIN_128)
         self._analog_in = AnalogIn(self._hx, channel_const)
+        self._read_timeout_s = read_timeout_s
+        self._perf_clock = perf_clock
+        self._sleeper = sleeper
 
     def read_raw(self) -> float:
+        if hasattr(self._clock, "value"):
+            self._clock.value = False
+        if hasattr(self._data, "value"):
+            deadline = self._perf_clock() + self._read_timeout_s
+            while self._data.value:
+                if self._perf_clock() >= deadline:
+                    raise LoadCellError("Timeout menunggu HX711 DOUT menjadi LOW (cek kabel VCC/GND/DT/SCK)")
+                self._sleeper(0.001)
         return float(self._analog_in.value)
 
     def close(self) -> None:
@@ -176,6 +197,7 @@ class BitBangHX711Backend:
         self._sleeper = sleeper
 
     def _wait_ready(self) -> None:
+        self._pins.write_sck(0)
         deadline = self._perf_clock() + self._read_timeout_s
         while self._pins.read_dout() != 0:
             if self._perf_clock() >= deadline:
@@ -378,7 +400,7 @@ class LoadCell:
         order = (
             [self._config.backend]
             if self._config.backend != "auto"
-            else ["adafruit_hx711", "lgpio", "rpi_gpio"]
+            else ["lgpio", "adafruit_hx711", "rpi_gpio"]
         )
         errors: list[str] = []
         for choice in order:
