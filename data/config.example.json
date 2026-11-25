@@ -1,0 +1,104 @@
+{
+  "environment": "development",
+  "device": {
+    "id": "NUTRISCAN-PI-01",
+    "location": "dapur-mbg-01",
+    "log_level": "INFO"
+  },
+  "model": {
+    "variant": "640",
+    "path": null,
+    "imgsz": 640,
+    "conf_threshold": 0.35,
+    "nutrition_csv": "data/classes_nutritions.csv",
+    "warmup": true,
+    "mock_mode": false
+  },
+  "camera": {
+    "backend": "auto",
+    "camera_ids": [0],
+    "width": 1280,
+    "height": 720,
+    "use_mjpeg": true,
+    "warmup_s": 1.5,
+    "flush_frames": 4,
+    "mock_image_path": null
+  },
+  "hardware": {
+    "pin_loadcell_dt": 5,
+    "pin_loadcell_sck": 6,
+    "pin_tombol": 17,
+    "enable_physical_button": true
+  },
+  "loadcell": {
+    "backend": "auto",
+    "gain": 128,
+    "reference_unit": 420.0,
+    "tare_offset": 0.0,
+    "auto_tare_on_boot": true,
+    "tare_samples": 15,
+    "read_samples": 10,
+    "sample_interval_s": 0.2,
+    "deadband_g": 5.0,
+    "trigger_threshold_g": 30.0,
+    "removal_threshold_g": 10.0,
+    "stability_tolerance_g": 3.0,
+    "stability_duration_s": 1.5,
+    "removal_confirm_s": 0.8,
+    "cooldown_min_s": 1.0,
+    "mock": {
+      "enabled": false,
+      "weights_g": [0.0, 352.0, 352.3, 351.9, 352.1, 0.0],
+      "static_weight_g": null,
+      "noise_g": 0.3,
+      "hold_seconds_per_step": 2.0
+    }
+  },
+  "storage": {
+    "db_path": "data/nutriscan.db",
+    "capture_dir": "data/captures",
+    "save_raw_image": false,
+    "save_annotated_image": true,
+    "send_empty_detections": false
+  },
+  "sync": {
+    "flush_interval_s": 30.0,
+    "retry_base_delay_s": 5.0,
+    "retry_max_delay_s": 300.0,
+    "max_retries": 0,
+    "supabase": {
+      "enabled": false,
+      "url": "",
+      "table": "nutriscan_scans",
+      "url_env": "NUTRISCAN_SUPABASE_URL",
+      "key_env": "NUTRISCAN_SUPABASE_KEY"
+    },
+    "http": {
+      "enabled": false,
+      "endpoint": "https://api.example.com/v1/nutriscan/scans",
+      "mode": "multipart",
+      "include_image": true,
+      "timeout_s": 15.0,
+      "token_env": "NUTRISCAN_HTTP_TOKEN",
+      "verify_tls": true
+    },
+    "mqtt": {
+      "enabled": false,
+      "broker": "localhost",
+      "port": 1883,
+      "topic": "nutriscan/{device_id}/telemetry",
+      "qos": 1,
+      "use_tls": false,
+      "include_image_base64": false,
+      "username_env": "NUTRISCAN_MQTT_USERNAME",
+      "password_env": "NUTRISCAN_MQTT_PASSWORD",
+      "connect_timeout_s": 10.0
+    }
+  },
+  "web": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 5000,
+    "api_key_env": "NUTRISCAN_API_KEY"
+  }
+}

@@ -1,0 +1,22 @@
+[Unit]
+Description=NutriScan MBG Edge AI & Load Cell IoT Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+SupplementaryGroups=gpio video
+WorkingDirectory=/home/pi/nutriscan-iot-raspi
+EnvironmentFile=-/home/pi/nutriscan-iot-raspi/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/nutriscan-iot-raspi/.venv/bin/python /home/pi/nutriscan-iot-raspi/main.py --config /home/pi/nutriscan-iot-raspi/data/config.json
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

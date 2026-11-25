@@ -1,0 +1,29 @@
+# ==============================================================================
+# NutriScan IoT Raspberry Pi 4 (Raspberry Pi OS 64-bit / Bookworm & Trixie)
+# ==============================================================================
+# Catatan penting:
+# 1. OS 32-bit TIDAK didukung oleh PyTorch/Ultralytics aarch64.
+# 2. Pasang paket sistem terlebih dahulu agar akses Pi Camera & GPIO stabil:
+#      sudo apt install -y python3-picamera2 python3-lgpio
+# 3. Buat virtual environment dengan mewarisi paket sistem:
+#      python3 -m venv --system-site-packages .venv
+# ==============================================================================
+
+# AI & Computer Vision (dari yolo/requirements-raspi.txt)
+ultralytics>=8.4
+ncnn
+numpy>=1.24
+Pillow>=10.0
+PyYAML>=6.0
+
+# Komunikasi IoT & Web Dashboard Lokal
+requests>=2.31
+flask>=3.0
+paho-mqtt>=2.0
+supabase>=2.0
+
+# Driver Hardware Raspberry Pi (HX711 & Tombol GPIO)
+# Menggunakan marker Linux/ARM agar tetap bisa diuji di laptop dalam mode --mock
+adafruit-circuitpython-hx711; sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "armv7l")
+gpiozero>=2.0; sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "armv7l")
+lgpio>=0.2.2; sys_platform == "linux" and platform_machine == "aarch64"

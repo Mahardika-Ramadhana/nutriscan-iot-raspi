@@ -1,0 +1,30 @@
+# Python & virtual environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment & secrets
+.env
+*.pem
+*.key
+data/config.json
+
+# Runtime data & logs
+data/captures/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+logs/
+*.log
+
+# OS & editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

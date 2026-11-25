@@ -1,0 +1,57 @@
+description: Ultralytics YOLO26n-seg model trained on ../datasets/mbg-yolo/data_scene.yaml
+author: Ultralytics
+date: "2026-11-19T09:06:25.254408+07:00"
+version: "8.4.215"
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: segment
+head: Segment26
+batch: 1
+imgsz:
+- 416
+- 416
+names:
+  0: Acar Timun Wortel
+  1: Anggur
+  2: Apel
+  3: Ayam Goreng
+  4: Ayam Serundeng
+  5: Bakso Saus BBQ
+  6: Capcay
+  7: Chiken Katsu
+  8: Fla Susu
+  9: Gudeg
+  10: Jagung
+  11: Jeruk
+  12: Kacang Merah
+  13: Keju
+  14: Kelengkeng
+  15: Ketimun dan Selada
+  16: Kwetiaw
+  17: Lele Crispy
+  18: Lontong
+  19: Mie
+  20: Nasi
+  21: Nasi Daun Jeruk
+  22: Pepes Tahu
+  23: Pisang
+  24: Pisang Lampung
+  25: Rolade Asam Manis
+  26: Roti
+  27: Salad Buah
+  28: Sawi
+  29: Sayur Isi Pepaya
+  30: Semur Ayam Kecap
+  31: Tahu
+  32: Tahu Crispy
+  33: Telur
+  34: Telur Semur
+  35: Tempe Goreng
+  36: Tempe Sagu
+  37: Tumis Keciwis
+  38: Tumis Koll Wortel
+args:
+  quantize: null
+channels: 3
+end2end: false
