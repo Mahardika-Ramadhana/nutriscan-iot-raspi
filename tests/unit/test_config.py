@@ -7,6 +7,7 @@ from nutriscan.core.config import (
     get_secret,
     load_config,
     load_dotenv_file,
+    with_camera_only_overrides,
     with_mock_overrides,
 )
 
@@ -81,6 +82,20 @@ def test_with_mock_overrides_returns_new_immutable_copy():
     assert mocked.loadcell.backend == "mock"
     assert mocked.loadcell.mock.enabled is True
     assert mocked.hardware.enable_physical_button is False
+
+
+def test_with_camera_only_overrides_keeps_real_camera_and_model():
+    original = load_config(_repo_root() / "data" / "config.example.json")
+    cam_only = with_camera_only_overrides(original, weight_g=400.0)
+
+    assert cam_only.model.mock_mode is False
+    assert cam_only.camera.backend == "auto"
+    assert cam_only.hardware.enable_physical_button is False
+    assert cam_only.loadcell.backend == "mock"
+    assert cam_only.loadcell.auto_tare_on_boot is False
+    assert cam_only.loadcell.mock.enabled is True
+    assert cam_only.loadcell.mock.static_weight_g == 400.0
+    assert cam_only.storage.send_empty_detections is True
 
 
 def test_load_dotenv_and_get_secret(tmp_path: Path, monkeypatch):

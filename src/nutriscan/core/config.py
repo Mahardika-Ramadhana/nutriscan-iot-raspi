@@ -601,3 +601,22 @@ def with_mock_overrides(cfg: AppConfig) -> AppConfig:
             mock=replace(cfg.loadcell.mock, enabled=True),
         ),
     )
+
+
+def with_camera_only_overrides(cfg: AppConfig, weight_g: float = 350.0) -> AppConfig:
+    """Return a new immutable AppConfig for testing real camera + NCNN AI without HX711/GPIO."""
+    return replace(
+        cfg,
+        environment="development",
+        model=replace(cfg.model, mock_mode=False),
+        hardware=replace(cfg.hardware, enable_physical_button=False),
+        loadcell=replace(
+            cfg.loadcell,
+            backend="mock",
+            auto_tare_on_boot=False,
+            trigger_threshold_g=99999.0,
+            removal_threshold_g=0.0,
+            mock=replace(cfg.loadcell.mock, enabled=True, static_weight_g=weight_g),
+        ),
+        storage=replace(cfg.storage, send_empty_detections=True),
+    )

@@ -15,7 +15,12 @@ import numpy as np
 
 from nutriscan.ai.detector import NutriScanDetector, ScanAnalysis
 from nutriscan.api.web_server import start_web_server
-from nutriscan.core.config import AppConfig, load_config, with_mock_overrides
+from nutriscan.core.config import (
+    AppConfig,
+    load_config,
+    with_camera_only_overrides,
+    with_mock_overrides,
+)
 from nutriscan.core.logger import configure_logging, get_logger
 from nutriscan.core.state_machine import NutriScanStateMachine, ScanState
 from nutriscan.db.cloud_sync import CloudSync
@@ -341,6 +346,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Jalankan simulasi kamera, HX711, dan model tanpa hardware fisik",
     )
     parser.add_argument(
+        "--camera-only",
+        action="store_true",
+        help="Jalankan kamera asli + model AI NCNN asli tanpa Load Cell HX711/GPIO",
+    )
+    parser.add_argument(
         "--once",
         action="store_true",
         help="Jalankan 1 siklus scan lengkap lalu keluar",
@@ -360,9 +370,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    cfg = load_config(args.config, allow_example_fallback=args.mock)
+    cfg = load_config(args.config, allow_example_fallback=(args.mock or args.camera_only))
     if args.mock:
         cfg = with_mock_overrides(cfg)
+    elif args.camera_only:
+        cfg = with_camera_only_overrides(cfg)
 
     log_level = args.log_level or cfg.device.log_level
     configure_logging(
@@ -385,7 +397,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.once:
             app.initialize()
-            result = app.run_once_sync()
+            if args.camera_only:
+                weight = cfg.loadcell.mock.static_weight_g or 350.0
+                app.sm.trigger_processing(weight)
+                result = app.process_scan(locked_weight_g=weight)
+            else:
+                result = app.run_once_sync()
             logger.info("Selesai (--once). Scan ID: %s", (result or {}).get("scan_id"))
             return 0
 
