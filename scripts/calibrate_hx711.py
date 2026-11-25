@@ -13,6 +13,16 @@ _SRC_DIR = _PROJECT_ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
+from nutriscan.core.runtime_env import (  # noqa: E402
+    apply_arm_runtime_guards,
+    reexec_with_arm_guards_if_needed,
+)
+
+if __name__ == "__main__":
+    reexec_with_arm_guards_if_needed(enable_gui=False)
+
+apply_arm_runtime_guards(enable_gui=False)
+
 from nutriscan.core.config import AppConfig, load_config, with_mock_overrides  # noqa: E402
 from nutriscan.hardware.loadcell import LoadCell, LoadCellError  # noqa: E402
 

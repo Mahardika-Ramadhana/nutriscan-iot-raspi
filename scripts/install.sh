@@ -34,6 +34,8 @@ if [[ "$SKIP_APT" != "true" ]] && command -v apt-get >/dev/null 2>&1; then
         python3-pip \
         python3-picamera2 \
         python3-lgpio \
+        python3-opencv \
+        python3-tk \
         libgl1 \
         libglib2.0-0 \
         sqlite3

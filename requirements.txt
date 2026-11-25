@@ -2,19 +2,22 @@
 # NutriScan IoT Raspberry Pi 4 (Raspberry Pi OS 64-bit / Bookworm & Trixie)
 # ==============================================================================
 # Catatan penting:
-# 1. OS 32-bit TIDAK didukung oleh PyTorch/Ultralytics aarch64.
-# 2. Pasang paket sistem terlebih dahulu agar akses Pi Camera & GPIO stabil:
-#      sudo apt install -y python3-picamera2 python3-lgpio
+# 1. OS 32-bit TIDAK didukung; gunakan Raspberry Pi OS 64-bit (aarch64).
+# 2. Pasang paket sistem terlebih dahulu agar akses kamera, OpenCV, Tkinter & GPIO
+#    stabil tanpa bentrok instruksi ARMv8.2 atau Qt5:
+#      sudo apt install -y python3-picamera2 python3-lgpio python3-opencv python3-tk
 # 3. Buat virtual environment dengan mewarisi paket sistem:
 #      python3 -m venv --system-site-packages .venv
+# 4. Runtime AI sekarang menggunakan engine NCNN + NumPy murni sehingga PyTorch
+#    dan ultralytics TIDAK diperlukan lagi di Raspberry Pi 4.
 # ==============================================================================
 
-# AI & Computer Vision (dari yolo/requirements-raspi.txt)
-ultralytics>=8.4
+# AI & Computer Vision (Native NCNN runtime tanpa PyTorch/Ultralytics di Pi 4)
 ncnn
 numpy>=1.24
 Pillow>=10.0
 PyYAML>=6.0
+opencv-python-headless>=4.8; sys_platform != "linux" or platform_machine != "aarch64"
 
 # Komunikasi IoT & Web Dashboard Lokal
 requests>=2.31

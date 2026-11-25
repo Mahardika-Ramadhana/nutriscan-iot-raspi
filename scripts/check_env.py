@@ -33,10 +33,13 @@ def main() -> int:
     ):
         core_ok = _check_module(mod, label) and core_ok
 
+    ncnn_ok = _check_module("ncnn", "ncnn (Native NCNN runtime)")
+    if not ncnn_ok:
+        _check_module("ultralytics", "ultralytics (fallback opsional)")
+
     for mod, label in (
-        ("ultralytics", "ultralytics (NCNN runtime)"),
-        ("ncnn", "ncnn"),
-        ("cv2", "opencv-python / cv2"),
+        ("cv2", "opencv / cv2"),
+        ("tkinter", "tkinter (Live preview GUI)"),
         ("picamera2", "picamera2 (Pi Camera CSI)"),
         ("adafruit_hx711", "adafruit-circuitpython-hx711"),
         ("lgpio", "lgpio (Bookworm GPIO)"),

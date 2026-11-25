@@ -22,6 +22,11 @@ SupplementaryGroups=gpio video
 WorkingDirectory=$PROJECT_DIR
 EnvironmentFile=-$PROJECT_DIR/.env
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONFAULTHANDLER=1
+Environment=OPENBLAS_CORETYPE=ARMV8
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=2
+Environment=OMP_WAIT_POLICY=PASSIVE
 ExecStart=$PROJECT_DIR/.venv/bin/python $PROJECT_DIR/main.py --config $PROJECT_DIR/data/config.json
 Restart=on-failure
 RestartSec=5

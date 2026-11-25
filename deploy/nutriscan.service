@@ -10,6 +10,11 @@ SupplementaryGroups=gpio video
 WorkingDirectory=/home/pi/nutriscan-iot-raspi
 EnvironmentFile=-/home/pi/nutriscan-iot-raspi/.env
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONFAULTHANDLER=1
+Environment=OPENBLAS_CORETYPE=ARMV8
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=2
+Environment=OMP_WAIT_POLICY=PASSIVE
 ExecStart=/home/pi/nutriscan-iot-raspi/.venv/bin/python /home/pi/nutriscan-iot-raspi/main.py --config /home/pi/nutriscan-iot-raspi/data/config.json
 Restart=on-failure
 RestartSec=5

@@ -11,6 +11,11 @@ from typing import Any
 import numpy as np
 import yaml
 
+from nutriscan.ai.ncnn_engine import (
+    NcnnSegmentEngine,
+    read_ncnn_metadata,
+    render_segmentation_overlay,
+)
 from nutriscan.core.config import ModelConfig
 from nutriscan.core.logger import get_logger
 
@@ -144,16 +149,11 @@ def load_nutrition_table(csv_path: Path | str) -> dict[str, dict[str, float | No
 
 def read_ncnn_metadata_imgsz(model_path: Path) -> int | None:
     """Read exported imgsz from NCNN metadata.yaml if present."""
-    meta_file = model_path / "metadata.yaml"
-    if not meta_file.is_file():
-        return None
     try:
-        meta = yaml.safe_load(meta_file.read_text(encoding="utf-8"))
+        imgsz, _names = read_ncnn_metadata(model_path)
     except yaml.YAMLError as exc:
-        raise DetectorError(f"Gagal membaca metadata NCNN {meta_file}: {exc}") from exc
-    if isinstance(meta, dict) and isinstance(meta.get("imgsz"), list) and meta["imgsz"]:
-        return int(meta["imgsz"][0])
-    return None
+        raise DetectorError(f"Gagal membaca metadata NCNN {model_path / 'metadata.yaml'}: {exc}") from exc
+    return imgsz
 
 
 def calculate_iou(
@@ -242,6 +242,7 @@ class NutriScanDetector:
     def __init__(self, config: ModelConfig) -> None:
         self._config = config
         self._model = None
+        self._ncnn_engine: NcnnSegmentEngine | None = None
         self._nutrition_table: dict[str, dict[str, float | None]] = {}
         self._loaded = False
 
@@ -253,8 +254,27 @@ class NutriScanDetector:
     def nutrition_table(self) -> dict[str, dict[str, float | None]]:
         return self._nutrition_table
 
+    def _load_ultralytics_model(self, model_path: Path) -> None:
+        try:
+            from ultralytics import YOLO
+        except ImportError as exc:
+            raise DetectorError("Library ncnn maupun ultralytics tidak terpasang di environment ini") from exc
+
+        t0 = time.perf_counter()
+        self._model = YOLO(str(model_path), task="segment")
+        if self._config.warmup:
+            dummy = np.zeros((self._config.imgsz, self._config.imgsz, 3), dtype=np.uint8)
+            self._model.predict(dummy, imgsz=self._config.imgsz, verbose=False)
+        self._loaded = True
+        logger.info(
+            "Model Ultralytics '%s' (imgsz=%d) siap dalam %.2f s",
+            model_path.name,
+            self._config.imgsz,
+            time.perf_counter() - t0,
+        )
+
     def load_model(self) -> None:
-        """Load nutrition CSV, validate NCNN metadata, load YOLO model, and warm up."""
+        """Load nutrition CSV, validate NCNN metadata, load native NCNN or YOLO model, and warm up."""
         self._nutrition_table = load_nutrition_table(self._config.nutrition_csv)
         if not self._nutrition_table:
             logger.warning("Tabel nutrisi kosong atau tidak ditemukan: %s", self._config.nutrition_csv)
@@ -277,23 +297,72 @@ class NutriScanDetector:
                 f"metadata NCNN ({model_path.name})={meta_imgsz}"
             )
 
-        try:
-            from ultralytics import YOLO
-        except ImportError as exc:
-            raise DetectorError("Library ultralytics tidak terpasang di environment ini") from exc
+        is_ncnn_dir = (model_path / "model.ncnn.param").is_file() and (model_path / "model.ncnn.bin").is_file()
+        if is_ncnn_dir:
+            try:
+                t0 = time.perf_counter()
+                engine = NcnnSegmentEngine(model_path, self._config.imgsz)
+                engine.load()
+                if self._config.warmup:
+                    dummy = np.zeros((self._config.imgsz, self._config.imgsz, 3), dtype=np.uint8)
+                    engine.predict(dummy, conf_threshold=self._config.conf_threshold)
+                self._ncnn_engine = engine
+                self._loaded = True
+                logger.info(
+                    "Model native NCNN '%s' (imgsz=%d) siap dalam %.2f s",
+                    model_path.name,
+                    self._config.imgsz,
+                    time.perf_counter() - t0,
+                )
+                return
+            except ImportError as exc:
+                logger.warning("Paket 'ncnn' tidak tersedia (%s), fallback ke Ultralytics...", exc)
 
-        t0 = time.perf_counter()
-        self._model = YOLO(str(model_path), task="segment")
-        if self._config.warmup:
-            dummy = np.zeros((self._config.imgsz, self._config.imgsz, 3), dtype=np.uint8)
-            self._model.predict(dummy, imgsz=self._config.imgsz, verbose=False)
-        self._loaded = True
-        logger.info(
-            "Model NCNN '%s' (imgsz=%d) siap dalam %.2f s",
-            model_path.name,
-            self._config.imgsz,
-            time.perf_counter() - t0,
+        self._load_ultralytics_model(model_path)
+
+    def _analyze_ncnn(
+        self,
+        frame: np.ndarray,
+        weight_total_g: float | None,
+    ) -> tuple[ScanAnalysis, np.ndarray]:
+        assert self._ncnn_engine is not None
+        pred = self._ncnn_engine.predict(frame, conf_threshold=self._config.conf_threshold)
+        detections: list[DetectionItem] = []
+        for c, p, b in zip(pred.cls_ids, pred.confs, pred.boxes_xyxy):
+            detections.append(
+                DetectionItem(
+                    class_name=pred.class_names.get(int(c), str(int(c))),
+                    confidence=round(float(p), 3),
+                    bbox_xyxy=tuple(round(float(v), 1) for v in b),  # type: ignore[arg-type]
+                )
+            )
+
+        components, total_nutrition = compute_mask_nutrition(
+            cls_ids=pred.cls_ids,
+            confs=pred.confs,
+            masks=pred.masks_bool,
+            class_names=pred.class_names,
+            weight_total_g=weight_total_g,
+            nutrition_table=self._nutrition_table,
         )
+        analysis = ScanAnalysis(
+            detection_count=len(detections),
+            detections=tuple(detections),
+            components=components,
+            weight_total_g=weight_total_g,
+            total_nutrition=total_nutrition,
+            has_occlusion=_check_occlusion(detections),
+            timing_ms=pred.timing_ms,
+        )
+        annotated = render_segmentation_overlay(
+            frame=frame,
+            cls_ids=pred.cls_ids,
+            confs=pred.confs,
+            boxes_xyxy=pred.boxes_xyxy,
+            masks_bool=pred.masks_bool,
+            class_names=pred.class_names,
+        )
+        return analysis, annotated
 
     def analyze(
         self,
@@ -308,6 +377,8 @@ class NutriScanDetector:
 
         if self._config.mock_mode:
             return self._analyze_mock(frame, weight_total_g)
+        if self._ncnn_engine is not None:
+            return self._analyze_ncnn(frame, weight_total_g)
 
         assert self._model is not None
         t0 = time.perf_counter()
