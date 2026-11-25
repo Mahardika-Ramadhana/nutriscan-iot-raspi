@@ -124,7 +124,7 @@ class AdafruitHX711Backend:
         dout_pin: int,
         sck_pin: int,
         gain: int = 128,
-        read_timeout_s: float = 1.0,
+        read_timeout_s: float = 0.4,
         perf_clock: Callable[[], float] = time.perf_counter,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -182,8 +182,8 @@ class BitBangHX711Backend:
         self,
         pin_driver: GpioPinDriver,
         gain: int = 128,
-        read_timeout_s: float = 1.0,
-        max_read_retries: int = 5,
+        read_timeout_s: float = 0.4,
+        max_read_retries: int = 3,
         perf_clock: Callable[[], float] = time.perf_counter,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -460,6 +460,8 @@ class LoadCell:
             except Exception as exc:
                 last_exc = exc
                 logger.warning("Gagal baca sampel HX711 ke-%d: %s", idx + 1, exc)
+                if not samples and idx >= 1:
+                    break
             if idx + 1 < count and not self._is_mock:
                 self._sleeper(0.02)
         if not samples:

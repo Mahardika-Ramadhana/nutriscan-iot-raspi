@@ -383,3 +383,25 @@ def test_test_loadcell_script_mock_count():
     assert rc == 0
 
 
+def test_collect_raw_samples_fails_fast_when_sensor_unplugged():
+    class DeadBackend:
+        def __init__(self):
+            self.calls = 0
+
+        def read_raw(self):
+            self.calls += 1
+            raise LoadCellError("Timeout")
+
+        def close(self):
+            pass
+
+    dead = DeadBackend()
+    cfg = _make_loadcell_cfg(auto_tare_on_boot=False, tare_samples=15)
+    scale = LoadCell(cfg, _pins(), environment="production", backend=dead, sleeper=lambda _: None)
+    with pytest.raises(LoadCellError, match="Semua pembacaan sampel HX711 gagal"):
+        scale.tare()
+    assert dead.calls == 2
+    scale.close()
+
+
+
